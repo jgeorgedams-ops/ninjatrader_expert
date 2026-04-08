@@ -1,0 +1,10 @@
+*.ninjascript
+*.dll
+*.pdb
+.vs/
+*.user
+*.suo
+bin/
+obj/
+.DS_Store
+Thumbs.db
