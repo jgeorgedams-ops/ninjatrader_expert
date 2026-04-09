@@ -181,7 +181,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                     dirConsistency);
 
                 Draw.TextFixed(this, "RegimeLabel", panelText,
-                    TextPosition.TopLeft, labelColor,
+                    TextPosition.TopRight, labelColor,
                     new Gui.Tools.SimpleFont("Consolas", 12),
                     Brushes.Transparent, Brushes.Transparent, 0);
             }
@@ -194,7 +194,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 Brush compactColor = regime == 1 ? Brushes.LimeGreen
                                    : regime == 2 ? Brushes.OrangeRed : Brushes.Yellow;
                 Draw.TextFixed(this, "RegimeLabel", compactName,
-                    TextPosition.TopLeft, compactColor,
+                    TextPosition.TopRight, compactColor,
                     new Gui.Tools.SimpleFont("Consolas", 12),
                     Brushes.Transparent, Brushes.Transparent, 0);
             }
@@ -264,59 +264,3 @@ REGIME CHANGE ticks (short 3-bar horizontal line):
 =================================================================
 */
 
-#region NinjaScript generated code. Neither change nor remove.
-
-namespace NinjaTrader.NinjaScript.Indicators
-{
-	public partial class Indicator : NinjaTrader.Gui.NinjaScript.IndicatorRenderBase
-	{
-		private FDAX_RegimeDetector[] cacheFDAX_RegimeDetector;
-		public FDAX_RegimeDetector FDAX_RegimeDetector(int erPeriod, int atrPeriod, bool showDebugPanel)
-		{
-			return FDAX_RegimeDetector(Input, erPeriod, atrPeriod, showDebugPanel);
-		}
-
-		public FDAX_RegimeDetector FDAX_RegimeDetector(ISeries<double> input, int erPeriod, int atrPeriod, bool showDebugPanel)
-		{
-			if (cacheFDAX_RegimeDetector != null)
-				for (int idx = 0; idx < cacheFDAX_RegimeDetector.Length; idx++)
-					if (cacheFDAX_RegimeDetector[idx] != null && cacheFDAX_RegimeDetector[idx].ErPeriod == erPeriod && cacheFDAX_RegimeDetector[idx].AtrPeriod == atrPeriod && cacheFDAX_RegimeDetector[idx].ShowDebugPanel == showDebugPanel && cacheFDAX_RegimeDetector[idx].EqualsInput(input))
-						return cacheFDAX_RegimeDetector[idx];
-			return CacheIndicator<FDAX_RegimeDetector>(new FDAX_RegimeDetector(){ ErPeriod = erPeriod, AtrPeriod = atrPeriod, ShowDebugPanel = showDebugPanel }, input, ref cacheFDAX_RegimeDetector);
-		}
-	}
-}
-
-namespace NinjaTrader.NinjaScript.MarketAnalyzerColumns
-{
-	public partial class MarketAnalyzerColumn : MarketAnalyzerColumnBase
-	{
-		public Indicators.FDAX_RegimeDetector FDAX_RegimeDetector(int erPeriod, int atrPeriod, bool showDebugPanel)
-		{
-			return indicator.FDAX_RegimeDetector(Input, erPeriod, atrPeriod, showDebugPanel);
-		}
-
-		public Indicators.FDAX_RegimeDetector FDAX_RegimeDetector(ISeries<double> input , int erPeriod, int atrPeriod, bool showDebugPanel)
-		{
-			return indicator.FDAX_RegimeDetector(input, erPeriod, atrPeriod, showDebugPanel);
-		}
-	}
-}
-
-namespace NinjaTrader.NinjaScript.Strategies
-{
-	public partial class Strategy : NinjaTrader.Gui.NinjaScript.StrategyRenderBase
-	{
-		public Indicators.FDAX_RegimeDetector FDAX_RegimeDetector(int erPeriod, int atrPeriod, bool showDebugPanel)
-		{
-			return indicator.FDAX_RegimeDetector(Input, erPeriod, atrPeriod, showDebugPanel);
-		}
-
-		public Indicators.FDAX_RegimeDetector FDAX_RegimeDetector(ISeries<double> input , int erPeriod, int atrPeriod, bool showDebugPanel)
-		{
-			return indicator.FDAX_RegimeDetector(input, erPeriod, atrPeriod, showDebugPanel);
-		}
-	}
-}
-
-#endregion
