@@ -326,14 +326,10 @@ namespace NinjaTrader.NinjaScript.Indicators
                 return;
             }
 
-            // ── DIRECTION: proximity-based ────────────────────────────────
-            // isBullishSetup = price closer to swing HIGH = approaching/breaking resistance = LONG
-            // !isBullishSetup = price closer to swing LOW  = approaching/breaking support   = SHORT
-            // NOTE: direction was previously inverted (was: closer to LOW = LONG).
-            // Empirical testing showed SHORT fired on bullish moves and LONG on bearish moves.
-            // Root cause: negative distHigh/distLow when price breaks through a level caused
-            // the proximity comparison to flip. Inverting the condition corrects this.
-            bool isBullishSetup = distHigh < distLow;
+            // ── DIRECTION: proximity-based ────────────────────────────────────────
+            // isBullishSetup = price closer to swing LOW  = testing support     = LONG
+            // isBullishSetup = false = price closer to swing HIGH = testing resistance = SHORT
+            bool isBullishSetup = distLow < distHigh;
 
             // ── Feature 3: ATR ratio ──────────────────────────────────
             double atrAvg = 0;
