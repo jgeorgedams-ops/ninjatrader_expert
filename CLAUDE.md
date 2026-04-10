@@ -1,66 +1,254 @@
-# Claude Code NinjaTrader 8 Expert Configuration
+# CLAUDE.md — NinjaTrader 8 Development Brain
 
-You are an expert NinjaTrader 8 NinjaScript developer with deep mastery of C# and the NT8 platform API. This file is your persistent instruction set for every session in this repository.
+> This file is the primary context file for Claude Code. Read this first before touching any file in this project.
 
-## Platform Rules
+---
 
-NinjaScript is C# running on .NET inside the NT8 sandbox. All scripts inherit from NT8 base classes. The only valid base classes are Indicator, Strategy, AddOnBase, DrawingTool, BarsType, and ChartStyle. System.Threading, System.IO, and network calls are not available inside OnBarUpdate. Never use LINQ inside OnBarUpdate. Never use Thread.Sleep or any blocking call inside OnBarUpdate. Always compile with F5 in the NT8 NinjaScript Editor after generating code.
+## READ THESE FIRST — every session, no exceptions
 
-## State Machine
+Before touching any file or writing any code, read all brain files in order:
 
-Every NinjaScript object moves through these states in order: SetDefaults, Configure, DataLoaded, Historical, Realtime, Terminated.
+```
+brain/00_WHO_I_AM.md
+brain/01_SYSTEM_MAP.md
+brain/02_SESSIONS_AND_INSTRUMENTS.md
+brain/03_STRATEGY_RULES.md
+brain/04_RISK_RULES.md
+brain/05_BUILD_LOG.md
+brain/06_DECISIONS.md
+```
 
-- In **SetDefaults**: set Name, Description, Calculate mode, AddPlot, AddLine, and default parameter values.
-- In **Configure**: call AddDataSeries for multi-timeframe setups.
-- In **DataLoaded**: initialise Series, Lists, and any object needing bar data.
-- In **Terminated**: unsubscribe ALL events and dispose timers. This is critical — skipping it causes memory leaks.
+These files contain the trader profile, full system inventory, strategy rules,
+risk parameters, build queue, and all architecture decisions. They are the
+source of truth. Everything below is NinjaScript technical reference.
 
-## Mandatory Code Patterns
+---
 
-- Every OnBarUpdate must start with: `if (CurrentBar < BarsRequiredToPlot) return;`
-- Every OnBarUpdate must be wrapped in a `try/catch` block that prints the exception message using `Print`.
-- Always include a `private bool _debugMode = true` field and wrap debug `Print` statements with an `if (_debugMode)` check.
+## What This Project Is
 
-## Instrument Context
+This is a NinjaTrader 8 (NT8) algorithmic futures trading development workspace
+for an Australian retail futures trader transitioning from discretionary to fully
+automated trading. It contains custom NinjaScript indicators, automated strategies,
+API reference documentation, code templates, test configurations, and the brain
+files that give Claude Code full context every session.
 
-- **Primary instrument:** FDAX (DAX Futures). Point value is 25 euros. Tick size is 0.5 points. Fixed stop is 15 points equalling 375 euros per contract. Target 1 is 5 points. Target 2 is 10 points. Session is 07:00 to 17:30 CET. Primary chart is 5-minute bars. Refinement chart is 1-minute bars.
-- **Confirmation instrument:** FESX (Euro Stoxx 50).
-- FDAX trades in whole points only.
+**Platform:** NinjaTrader 8 (NT8)
+**Language:** NinjaScript — C# extension built on .NET Framework
+**Primary instruments:** FDAX (European session), NQ (US session), Asian TBD
+**Regulatory context:** Australian retail trader — ASIC oversight, trading income
 
-## Existing Indicators
+---
 
-- **FDAX_RegimeDetector:** classifies market regime as trending, ranging, or volatile using ML-derived thresholds trained on Aug 2023 to Mar 2026 FDAX data during core hours.
-- **FDAX_ReversalScorer:** scores reversal probability at key levels including pivots, fibs, and liquidity sweeps. Known bug is that green circles appear on bearish candles and red circles are missing for shorts.
-- **FDAX_SweepClassifier:** classifies liquidity sweep events. In-sample win rate is approximately 92 percent at score 75 or above. Live performance will be lower.
+## Folder Map
 
-## Coding Standards
+```
+/brain           → Context files — read every session before writing code
+/prompts         → Pre-built prompts for Claude Code and Claude.ai sessions
+/indicators      → Custom .cs indicator files
+                   deploy to: C:\Users\jgdam\OneDrive\Documents\NinjaTrader 8\bin\Custom\Indicators\
+/strategies      → Automated strategy .cs files
+                   deploy to: C:\Users\jgdam\OneDrive\Documents\NinjaTrader 8\bin\Custom\Strategies\
+/docs            → Reference documents — 01 through 09
+/templates       → Boilerplate .cs starter files — copy and rename before editing
+/tests           → Strategy Analyzer replay configs, backtest notes, walk-forward records
+CLAUDE.md        → This file
+README.md        → Human-readable project overview
+```
 
-- Use `_camelCase` for private fields. Use `PascalCase` for properties and methods.
-- Always add XML summary comments on public properties.
-- Every user-configurable parameter needs the `[NinjaScriptProperty]` attribute.
-- Use named plots rather than Values index notation.
-- Use `PlotBrushes` where colour encodes direction.
+---
 
-## Drawing Conventions
+## NinjaScript Fundamentals
 
-- Long signals use `Draw.ArrowUp` below the bar in `LimeGreen`.
-- Short signals use `Draw.ArrowDown` above the bar in `Red`.
-- Stop level uses `Draw.HorizontalLine` in `DarkRed` dashed.
-- Target levels use `Draw.HorizontalLine` in `DodgerBlue` dashed.
-- Always tag draws with `CurrentBar.ToString()` as a suffix to avoid duplicate tag errors.
+### Language
+- NinjaScript is C# with NT8-specific base classes. All standard C# and .NET libraries available.
+- Scripts compile inside NT8's NinjaScript Editor (Ctrl+Alt+E) or Visual Studio.
+- Every script inherits from a base class: `Indicator`, `Strategy`, `AddOnBase`, `DrawingTool`.
 
-## Common Errors and Fixes
+### The Two Core Methods
 
-| Error | Cause | Fix |
-|---|---|---|
-| Index outside bounds | Accessing `Close[N]` where N > CurrentBar | Guard: `if (CurrentBar < N) return;` |
-| Object reference not set | Using object before initialising | Move initialisation to `State.DataLoaded` |
-| NaN values | Indicator not warmed up | Check `BarsRequiredToPlot` and add `double.IsNaN` guard |
-| Memory leaks | Events not unsubscribed | Always unsubscribe in `State.Terminated` |
+```csharp
+protected override void OnStateChange()
+{
+    // Called ONCE per state: SetDefaults → Configure → DataLoaded → Historical → Realtime → Terminated
+    if (State == State.SetDefaults) { Name = "MyScript"; }
+    if (State == State.Configure)   { AddDataSeries(Data.BarsPeriodType.Minute, 5); }
+    if (State == State.DataLoaded)  { /* initialise objects, set BarsRequiredToPlot */ }
+    if (State == State.Terminated)  { /* unsubscribe events, dispose timers — critical */ }
+}
 
-## Session Startup Checklist
+protected override void OnBarUpdate()
+{
+    if (CurrentBar < BarsRequiredToPlot) return;  // ALWAYS guard first
+    try
+    {
+        // all calculation and signal logic here
+    }
+    catch (Exception ex) { Print("ERROR: " + ex.Message); }
+}
+```
 
-When I start a new session, ask me:
-1. Which indicator or strategy are we working on?
-2. Is this a new build or fixing an existing one?
-3. Do I have the latest .cs file to paste in, or should we start from the template?
+### Critical Index Convention
+- `Close[0]` = current bar, `Close[1]` = 1 bar ago, `Close[2]` = 2 bars ago
+- `High[0]`, `Low[0]`, `Open[0]`, `Volume[0]` — same convention
+- Never access `Close[-1]` — future bar, will throw
+
+### State Machine
+```
+SetDefaults → Configure → DataLoaded → Historical → Realtime → Terminated
+```
+
+### Managed vs Unmanaged Orders
+| Mode | Use When |
+|---|---|
+| Managed (default) | Standard strategies — NT8 handles lifecycle automatically |
+| Unmanaged | Only if managed mode genuinely cannot achieve the goal |
+
+---
+
+## FDAX-Specific Rules — Never Violate These
+
+```
+Point value:  €25.00 per point
+Tick size:    0.5 points — but ALL stop/target logic uses POINTS, never ticks
+Stop loss:    15 points (€375/contract) — hardcoded, never a parameter
+Target 1:     5 points  (€125/contract)
+Target 2:     10 points (€250/contract)
+Max contracts: 1 — until 50+ trade sample is proven
+Session:      07:00–17:30 CET — enforced via ToTime() filter
+```
+
+**If you ever see CalculationMode.Ticks used for FDAX stop/target — it is wrong. Fix it.**
+
+---
+
+## Indicator-to-Strategy Reading Pattern
+
+Indicators must be declared at class level and instantiated in State.DataLoaded.
+Never instantiate inside OnBarUpdate. Never call the indicator constructor repeatedly.
+
+```csharp
+// Class level
+private FDAX_RegimeDetector   _regime;
+private FDAX_LiquiditySweep   _sweep;
+private FDAX_SessionVWAP      _vwap;
+private FDAX_ReversalScorer   _reversal;
+
+// State.DataLoaded
+_regime   = FDAX_RegimeDetector(/* params */);
+_sweep    = FDAX_LiquiditySweep(/* params */);
+_vwap     = FDAX_SessionVWAP(/* params */);
+_reversal = FDAX_ReversalScorer(/* params */);
+
+// OnBarUpdate — read once into locals
+int    regime        = (int)_regime.Values[0][0];
+double sweepScore    = _sweep.Values[0][0];
+double sweepDir      = _sweep.Values[1][0];
+double vwap          = _vwap.Values[0][0];
+double reversalScore = _reversal.Values[0][0];
+```
+
+---
+
+## Key NT8 APIs — Quick Reference
+
+### Built-in Indicators
+```csharp
+EMA(Close, 20)[0]
+SMA(Close, 50)[0]
+RSI(Close, 14, 3)[0]
+ATR(14)[0]
+MACD(Close,12,26,9).Value[0]
+BollingerBands(Close,14,2).Upper[0]
+VOL()[0]
+```
+
+### Order Entry (managed mode)
+```csharp
+EnterLong(quantity, "EntrySignalName");
+EnterShort(quantity, "EntrySignalName");
+ExitLong("ExitSignalName", "EntrySignalName");
+ExitShort("ExitSignalName", "EntrySignalName");
+EnterLongLimit(quantity, limitPrice, "LimitEntry");
+EnterShortLimit(quantity, limitPrice, "LimitEntry");
+
+// FDAX — use CalculationMode.Currency or .Price, never .Ticks
+SetStopLoss("EntryName", CalculationMode.Price, entryPrice - 15.0, false);
+SetProfitTarget("EntryName", CalculationMode.Price, entryPrice + 5.0);
+```
+
+### Drawing on Charts
+```csharp
+Draw.Line(this, "tag", false, 10, High[10], 0, High[0], Brushes.Blue, DashStyleHelper.Solid, 2);
+Draw.ArrowUp(this, "arrow"+CurrentBar, true, 0, Low[0]-2*TickSize, Brushes.Green);
+Draw.Text(this, "lbl", "Signal", 0, High[0]+2*TickSize);
+Draw.HorizontalLine(this, "hline", Close[0], Brushes.Gray);
+```
+
+### Time Filtering
+```csharp
+int now = ToTime(Time[0]);
+// Session filter: 07:00–17:30 CET = approximately 06:00–16:30 UTC
+// Use ToTime(Time[0]) against integer times: 70000 = 07:00:00
+if (now < 70000 || now > 173000) return;
+```
+
+### Printing / Debugging
+```csharp
+Print("Value: " + Close[0]);
+Print(string.Format("Bar {0}: O={1:F1} H={2:F1} L={3:F1} C={4:F1}",
+    CurrentBar, Open[0], High[0], Low[0], Close[0]));
+// Output: NinjaScript Output window (Ctrl+Alt+O)
+```
+
+---
+
+## Coding Rules — Enforce Without Being Asked
+
+1. Always guard `OnBarUpdate` with `if (CurrentBar < BarsRequiredToPlot) return;`
+2. Always wrap core logic in `try/catch` with `Print()` in catch
+3. Never use blocking calls inside `OnBarUpdate` — no Thread.Sleep, no synchronous HTTP
+4. Always clean up in `State.Terminated` — unsubscribe events, dispose timers
+5. Managed mode only — never switch to unmanaged without explicit instruction
+6. Calculate.OnBarClose always — never OnEachTick unless explicitly required
+7. FDAX stops and targets in points (CalculationMode.Price), never ticks
+8. Indicators declared at class level, instantiated in State.DataLoaded only
+9. Multi-timeframe data: add series in State.Configure, access via BarsArray[n]
+10. All configurable params as [NinjaScriptProperty], all safety rails as private const
+
+---
+
+## Deploy Paths (Windows — OneDrive path)
+
+```
+Indicators:  C:\Users\jgdam\OneDrive\Documents\NinjaTrader 8\bin\Custom\Indicators\
+Strategies:  C:\Users\jgdam\OneDrive\Documents\NinjaTrader 8\bin\Custom\Strategies\
+Add-ons:     C:\Users\jgdam\OneDrive\Documents\NinjaTrader 8\bin\Custom\AddOns\
+```
+
+After copying: NinjaScript Editor → F5 to compile. Check Control Center → Log tab for errors.
+
+---
+
+## Documentation Index
+
+| File | Topic |
+|---|---|
+| `docs/01_core_developer_hub.md` | Platform overview, architecture, state machine |
+| `docs/02_indicator_development.md` | Custom indicators, plots, MTF, drawing |
+| `docs/03_strategy_development_backtesting.md` | Strategies, orders, Strategy Analyzer |
+| `docs/04_ninjascript_language_reference.md` | C#/NinjaScript language reference |
+| `docs/05_automated_trading_interface.md` | ATI — external order automation |
+| `docs/06_rest_websocket_api.md` | REST API, WebSocket, Tradovate |
+| `docs/07_addon_platform_extension.md` | Add-ons, custom windows, distribution |
+| `docs/08_ninjascript_editor_tooling.md` | Editor, debugging, Visual Studio |
+| `docs/09_community_support_appshare.md` | Forums, app share, GitHub resources |
+
+---
+
+## Australian Context
+
+- Tax: futures gains taxed as ordinary income for active traders. Keep full trade logs.
+- Brokers (NT8-compatible, AU-accessible): Rithmic via TopStep/Apex, IBKR, Tradovate
+- NT8 custom files are on OneDrive path — always use the OneDrive path above, not standard Documents
+- PowerShell: use semicolons (`;`) not `&&` for command chaining
+- AEST = UTC+10 (UTC+11 during daylight saving)
